@@ -1,0 +1,15 @@
+The End of the MCP Era: What Comes Next for AI Tool Integration
+
+In 2024, Anthropic's Model Context Protocol (MCP) was the hottest thing in AI infrastructure. Every startup rushed to build MCP servers, and the ecosystem exploded with hundreds of integrations. But by early 2026, the tide has clearly turned. MCP is gradually falling out of favor, being replaced by direct CLI-based tool integration.
+
+The shift is driven by a fundamental realization: LLMs have become remarkably good at using command-line tools directly. When Claude or GPT can just execute `git log`, `curl`, or `psql` with near-perfect accuracy, the overhead of wrapping every tool in an MCP server feels unnecessary. Why maintain a JSON-RPC abstraction layer when the model can read man pages and figure out the flags itself?
+
+Several major players have already made the switch. Cursor dropped MCP support in v3.0, replacing it with a "shell tools" paradigm where the AI agent simply has access to a curated set of CLI binaries. Windsurf followed weeks later. The developer experience actually improved — fewer configuration files, no server processes to manage, and the AI could discover new tools on its own by exploring the filesystem.
+
+This doesn't mean structured APIs are dead. For complex multi-step workflows, especially those involving authentication and stateful sessions, a proper API layer still makes sense. But for the 80% case — reading files, querying databases, calling HTTP endpoints, running tests — the CLI is simply more ergonomic for AI agents than any protocol layer.
+
+The implications go beyond just developer tools. This trend reflects a broader shift in AI architecture: instead of building AI-specific interfaces to existing systems, we're realizing that systems already have perfectly good interfaces. They're called command lines, and they were designed for exactly this kind of programmatic interaction decades ago.
+
+What does this mean for teams that invested heavily in MCP? The migration path is actually straightforward. Most MCP servers are thin wrappers around CLI tools anyway. Strip away the protocol layer, expose the underlying commands, and you often get something simpler and more maintainable. The real investment was in understanding which tools the AI needs access to — and that knowledge transfers directly.
+
+Looking ahead, the next frontier isn't about protocols at all. It's about trust and permissions. As AI agents gain direct access to powerful system tools, the security model becomes the critical question. Expect 2026 to be the year of AI sandboxing and capability-based security for autonomous agents.
