@@ -37,22 +37,28 @@ def process_with_llm(title: str, text: str) -> dict:
         raise ValueError("请设置 GEMINI_API_KEY 环境变量")
     client = genai.Client(api_key=api_key)
 
-    prompt = f"""你是一位资深AI行业分析师，同时也是出色的中英翻译。现在请你帮一位同样资深但时间有限的中文读者处理一篇英文文章。
+    prompt = f"""你是一位资深科技行业分析师，同时也是出色的中英翻译。现在请你帮一位同样资深但时间有限的中文读者处理一篇英文文章。
 
 任务：
 1. 逐段翻译成中文（不是摘要，是完整翻译）
-2. 在值得关注的地方加旁批注释
+2. 在少数关键位置加旁批注释（用你的外部知识补充背景）
+3. 在最后给出总结：核心观点 + why this matters
 
 翻译要求：
 - 保留关键术语英文（如 MCP、CLI、agent、LLM 等）
 - 翻译风格自然流畅，信息密度高，不要机翻腔
 - 如果原文本身就是中文，则"翻译"栏直接保留原文
 
-批注要求（最重要）：
-- 不是每段都需要注释，只标注真正有信息增量的地方
-- 重点关注：反直觉的判断、行业趋势/转折信号、隐含的因果关系、需要背景知识才能理解的点
-- 每条注释 2-3 句话，解释"为什么这很重要"或"背后的 context 是什么"
-- 语气像一个懂行的朋友在旁边小声点评
+批注要求（最重要，请严格遵守）：
+- 绝大多数段落不需要注释。一篇文章通常只需要 2-4 条批注，只在信号非常强的地方才加
+- 不要分析作者的遣词造句、修辞手法或写作意图
+- 要做的是：当文章提到一个人名、事件、公司决策、行业动向时，调用你的外部世界知识，补充读者可能不知道的背景信息
+- 例如：文章提到某人，你补充此人的关键履历和为什么他出现在这里很重要；文章提到某个决策，你补充类似历史先例或行业背景
+- 每条注释 2-3 句话，语气像一个消息灵通的朋友在旁边补充 context
+
+总结要求：
+- 在所有段落之后，用 3-5 句话提炼：作者的核心观点是什么？为什么这件事重要（why this matters）？读者应该带走什么 insight？
+- 不要重复文章内容，要提炼出文章没有直接说但暗示了的东西
 
 请严格以如下JSON格式输出，不要输出其他内容：
 
@@ -66,14 +72,15 @@ def process_with_llm(title: str, text: str) -> dict:
       "annotations": [
         {{
           "sentence": "被注释的那句话的中文翻译（不是英文原文）",
-          "note": "2-3句话的旁批"
+          "note": "2-3句话，补充外部背景知识"
         }}
       ]
     }}
-  ]
+  ],
+  "summary": "3-5句话的总结：核心观点 + why this matters + 读者应带走的insight"
 }}
 
-annotations 数组可以为空（大多数段落不需要注释）。
+annotations 数组可以为空（大多数段落应该为空）。整篇文章的批注总数控制在 2-4 条。
 
 ---
 
@@ -248,6 +255,27 @@ def render_html(data: dict, url: str = "") -> str:
         line-height: 1.7;
     }}
 
+    .summary {{
+        margin-top: 48px;
+        padding: 32px;
+        background: #f5f3ee;
+        border-radius: 12px;
+        border: 1px solid #e0ddd5;
+    }}
+
+    .summary h2 {{
+        font-size: 18px;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 16px;
+    }}
+
+    .summary p {{
+        font-size: 16px;
+        color: #333;
+        line-height: 1.9;
+    }}
+
     @media (max-width: 768px) {{
         .row {{
             flex-direction: column;
@@ -275,6 +303,7 @@ def render_html(data: dict, url: str = "") -> str:
         <span>中文翻译 &amp; 批注</span>
     </div>
     {rows_html}
+    {f'<div class="summary"><h2>Why This Matters</h2><p>{data.get("summary", "")}</p></div>' if data.get("summary") else ""}
 </div>
 </body>
 </html>"""
