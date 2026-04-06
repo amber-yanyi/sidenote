@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sidenote — AI 阅读增强</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+                     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        background: #fafaf7;
+        color: #333;
+        line-height: 1.8;
+        min-height: 100vh;
+    }
+
+    /* Landing page */
+    .landing {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 40px 20px;
+    }
+
+    .landing h1 {
+        font-size: 48px;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 8px;
+    }
+
+    .landing .tagline {
+        font-size: 18px;
+        color: #888;
+        margin-bottom: 48px;
+    }
+
+    .input-group {
+        display: flex;
+        gap: 12px;
+        width: 100%;
+        max-width: 640px;
+    }
+
+    .input-group input {
+        flex: 1;
+        padding: 14px 20px;
+        font-size: 16px;
+        border: 2px solid #e0ddd5;
+        border-radius: 12px;
+        outline: none;
+        background: #fff;
+        transition: border-color 0.2s;
+    }
+
+    .input-group input:focus {
+        border-color: #e8a735;
+    }
+
+    .input-group button {
+        padding: 14px 32px;
+        font-size: 16px;
+        font-weight: 600;
+        background: #1a1a1a;
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: background 0.2s;
+        white-space: nowrap;
+    }
+
+    .input-group button:hover {
+        background: #333;
+    }
+
+    .input-group button:disabled {
+        background: #999;
+        cursor: not-allowed;
+    }
+
+    /* Loading state */
+    .loading {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        margin-top: 48px;
+        gap: 16px;
+    }
+
+    .loading.active {
+        display: flex;
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #e0ddd5;
+        border-top-color: #e8a735;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+        font-size: 15px;
+        color: #888;
+    }
+
+    /* Error */
+    .error {
+        display: none;
+        margin-top: 24px;
+        padding: 14px 20px;
+        background: #fef2f2;
+        border: 1px solid #fca5a5;
+        border-radius: 10px;
+        color: #b91c1c;
+        font-size: 14px;
+        max-width: 640px;
+        width: 100%;
+    }
+
+    .error.active {
+        display: block;
+    }
+
+    /* Result */
+    .result {
+        display: none;
+        width: 100%;
+    }
+
+    .result.active {
+        display: block;
+    }
+
+    .result-bar {
+        position: sticky;
+        top: 0;
+        background: #fafaf7;
+        border-bottom: 1px solid #e0ddd5;
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        z-index: 10;
+    }
+
+    .result-bar .back-btn {
+        font-size: 14px;
+        color: #666;
+        background: none;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 6px 16px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .result-bar .back-btn:hover {
+        border-color: #999;
+        color: #333;
+    }
+
+    .result-bar .title {
+        font-size: 14px;
+        color: #999;
+    }
+
+    .result-content {
+        width: 100%;
+    }
+
+    .result-content iframe {
+        width: 100%;
+        border: none;
+        min-height: 100vh;
+    }
+</style>
+</head>
+<body>
+
+<div class="landing" id="landing">
+    <h1>Sidenote</h1>
+    <p class="tagline">粘贴一篇英文文章链接，AI 帮你翻译 + 旁批</p>
+
+    <div class="input-group">
+        <input type="url" id="urlInput" placeholder="https://example.com/article" autofocus>
+        <button id="submitBtn" onclick="processArticle()">开始阅读</button>
+    </div>
+
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div class="loading-text">正在提取文章并处理，通常需要 30-60 秒...</div>
+    </div>
+
+    <div class="error" id="error"></div>
+</div>
+
+<div class="result" id="result">
+    <div class="result-bar">
+        <button class="back-btn" onclick="goBack()">← 处理新文章</button>
+        <span class="title" id="resultTitle"></span>
+    </div>
+    <div class="result-content">
+        <iframe id="resultFrame" sandbox="allow-same-origin"></iframe>
+    </div>
+</div>
+
+<script>
+const urlInput = document.getElementById('urlInput');
+const submitBtn = document.getElementById('submitBtn');
+const loading = document.getElementById('loading');
+const error = document.getElementById('error');
+const landing = document.getElementById('landing');
+const result = document.getElementById('result');
+const resultFrame = document.getElementById('resultFrame');
+const resultTitle = document.getElementById('resultTitle');
+
+urlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') processArticle();
+});
+
+async function processArticle() {
+    const url = urlInput.value.trim();
+    if (!url) return;
+
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        showError('请输入有效的 URL（以 http:// 或 https:// 开头）');
+        return;
+    }
+
+    submitBtn.disabled = true;
+    loading.classList.add('active');
+    error.classList.remove('active');
+
+    try {
+        const resp = await fetch('/api/process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url }),
+        });
+
+        if (!resp.ok) {
+            const data = await resp.json();
+            throw new Error(data.detail || '处理失败');
+        }
+
+        const data = await resp.json();
+
+        // Show result
+        landing.style.display = 'none';
+        result.classList.add('active');
+        resultTitle.textContent = data.title_zh || data.title;
+
+        // Write HTML into iframe
+        resultFrame.srcdoc = data.html;
+
+        // Auto-resize iframe
+        resultFrame.onload = () => {
+            const doc = resultFrame.contentDocument || resultFrame.contentWindow.document;
+            resultFrame.style.height = doc.documentElement.scrollHeight + 'px';
+        };
+
+    } catch (err) {
+        showError(err.message);
+    } finally {
+        submitBtn.disabled = false;
+        loading.classList.remove('active');
+    }
+}
+
+function showError(msg) {
+    error.textContent = msg;
+    error.classList.add('active');
+}
+
+function goBack() {
+    result.classList.remove('active');
+    landing.style.display = '';
+    urlInput.value = '';
+    urlInput.focus();
+}
+</script>
+
+</body>
+</html>
